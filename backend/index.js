@@ -5,16 +5,17 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
-
 const { sequelize, User, Token } = require('./models');
 
 const app = express();
-
 const PORT = process.env.PORT || 5000;
 const ROLE_SECRET = process.env.ROLE_SECRET;
 const JWT_SECRET = process.env.JWT_SECRET;
 
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:3000',
+  credentials: true
+}));
 app.use(express.json());
 
 // Nodemailer setup
@@ -26,7 +27,7 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// Helper middleware to authenticate JWT token (optional, for protected routes)
+// Helper middleware to authenticate JWT token
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   if (!authHeader) return res.sendStatus(401);
@@ -39,6 +40,11 @@ function authenticateToken(req, res, next) {
     next();
   });
 }
+
+// Test route
+app.get('/', (req, res) => {
+  res.json({ message: 'QuickDesk Backend API is running!' });
+});
 
 // Register
 app.post('/auth/register', async (req, res) => {
@@ -80,7 +86,7 @@ app.post('/auth/register', async (req, res) => {
 app.post('/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    if(!email || !password) return res.status(400).json({ error: 'Missing email or password' });
+    if (!email || !password) return res.status(400).json({ error: 'Missing email or password' });
 
     const user = await User.findOne({ where: { email } });
     if (!user) return res.status(400).json({ error: 'Invalid credentials' });
@@ -105,19 +111,33 @@ app.post('/auth/login', async (req, res) => {
   }
 });
 
-// Password Reset - Request reset email
+// Mock tickets endpoint for dashboard
+app.get('/tickets', authenticateToken, async (req, res) => {
+  // Mock data - replace with real ticket logic later
+  const tickets = [
+    {
+      id: 1,
+      subject: "How to win odoo Hackathon",
+      description: "I want to win odoo hackathon tell me what are the skills i needed for it...",
+      status: "open",
+      userId: req.user.id,
+      createdAt: new Date()
+    }
+  ];
+  res.json({ tickets });
+});
+
+// Password Reset routes (same as your original)
 app.post('/auth/request-reset-password', async (req, res) => {
   try {
     const { email } = req.body;
-    if(!email) return res.status(400).json({ error: 'Email required' });
+    if (!email) return res.status(400).json({ error: 'Email required' });
 
     const user = await User.findOne({ where: { email } });
     if (!user) return res.status(400).json({ error: 'User with this email does not exist' });
 
-    // Remove existing tokens for user
-    await Token.destroy({ where: { userId: user.id }});
+    await Token.destroy({ where: { userId: user.id } });
 
-    // Generate token and store hashed version
     const resetToken = crypto.randomBytes(32).toString('hex');
     const hashedToken = await bcrypt.hash(resetToken, 10);
 
@@ -127,10 +147,8 @@ app.post('/auth/request-reset-password', async (req, res) => {
       createdAt: new Date()
     });
 
-    // Prepare reset link with plain token & userid
     const link = `http://localhost:3000/reset-password?token=${resetToken}&id=${user.id}`;
 
-    // Send email
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: email,
@@ -145,11 +163,10 @@ app.post('/auth/request-reset-password', async (req, res) => {
   }
 });
 
-// Password Reset - Set new password
 app.post('/auth/reset-password', async (req, res) => {
   try {
     const { userId, token, password } = req.body;
-    if(!userId || !token || !password) {
+    if (!userId || !token || !password) {
       return res.status(400).json({ error: 'Missing required information' });
     }
 
@@ -162,8 +179,7 @@ app.post('/auth/reset-password', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     await User.update({ password: hashedPassword }, { where: { id: userId } });
-
-    await Token.destroy({ where: { userId } }); // Delete used token
+    await Token.destroy({ where: { userId } });
 
     res.json({ message: 'Password reset successful' });
   } catch (err) {

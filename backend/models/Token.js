@@ -1,9 +1,18 @@
 module.exports = (sequelize, DataTypes) => {
-  const User = sequelize.define('User', {
-    username: { type: DataTypes.STRING, allowNull: false },
-    email: { type: DataTypes.STRING, allowNull: false, unique: true },
-    password: { type: DataTypes.STRING, allowNull: false },
-    role: { type: DataTypes.ENUM('user', 'agent', 'admin'), defaultValue: 'user' }
+  const Token = sequelize.define('Token', {
+    userId: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
+    token: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    createdAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW
+    }
   });
-  return User;
+  return Token;
 };
