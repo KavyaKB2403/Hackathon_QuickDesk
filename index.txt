@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuickDesk Pro - Complete Help Desk System</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .bounce-in { animation: bounceIn 0.5s ease-out; }
+        @keyframes bounceIn { 0% { transform: scale(0.3); opacity: 0; } 50% { transform: scale(1.05); } 70% { transform: scale(0.9); } 100% { transform: scale(1); opacity: 1; } }
+        .loading-spinner { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .mention { background: #dbeafe; color: #1e40af; padding: 2px 4px; border-radius: 4px; font-weight: 500; }
+        .comment-edited { font-style: italic; color: #6b7280; font-size: 0.75rem; }
+        .debug-panel { position: fixed; bottom: 20px; left: 20px; background: rgba(0,0,0,0.9); color: white; padding: 15px; border-radius: 12px; font-family: monospace; font-size: 11px; max-width: 400px; max-height: 300px; overflow-y: auto; z-index: 9999; display: none; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div id="root"></div>
+    <div id="debug-panel" class="debug-panel">
+        <h4><i class="fas fa-bug"></i> Debug Console</h4>
+        <div id="debug-content"></div>
+        <button onclick="clearDebugLogs()" style="background: #374151; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; margin-top: 10px;">Clear</button>
+    </div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+
+        // Debug Logger
+        class DebugLogger {
+            constructor() {
+                this.logs = [];
+                this.isEnabled = true;
+                this.maxLogs = 20;
+            }
+
+            log(level, message, data = null) {
+                if (!this.isEnabled) return;
+                
+                const logEntry = {
+                    id: Date.now() + Math.random(),
+                    timestamp: new Date().toISOString(),
+                    level,
+                    message,
+                    data: data ? JSON.stringify(data, null, 2) : null
+                };
+                
+                this.logs.unshift(logEntry);
+                if (this.logs.length > this.maxLogs) {
+                    this.logs = this.logs.slice(0, this.maxLogs);
+                }
+                
+                console.log(`[${level.toUpperCase()}] ${message}`, data || '');
+                this.updateDebugPanel();
+            }
+
+            error(message, error = null) { this.log('error', message, error); }
+            warn(message, data = null) { this.log('warn', message, data); }
+            info(message, data = null) { this.log('info', message, data); }
+            debug(message, data = null) { this.log('debug', message, data); }
+
+            updateDebugPanel() {
+                const content = document.getElementById('debug-content');
+                if (content && this.isEnabled) {
+                    const recentLogs = this.logs.slice(0, 10);
+                    content.innerHTML = recentLogs.map(log => `
+                        <div style="margin: 5px 0; padding: 5px; border-radius: 4px; background: rgba(${
+                            log.level === 'error' ? '239, 68, 68' : 
+                            log.level === 'warn' ? '245, 158, 11' : 
+                            log.level === 'info' ? '59, 130, 246' : '107, 114, 128'
+                        }, 0.2);">
+                            <strong>[${log.level.toUpperCase()}]</strong> ${log.message}
+                            <div style="font-size: 9px; opacity: 0.6; margin-top: 2px;">
+                                ${new Date(log.timestamp).toLocaleTimeString()}
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            }
+
+            toggle() {
+                const panel = document.getElementById('debug-panel');
+                if (panel) {
+                    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+                }
+            }
+
+            clear() {
+                this.logs = [];
+                this.updateDebugPanel();
+            }
+        }
